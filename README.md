@@ -135,5 +135,27 @@ Here's an example record from a page request:
       "event_version": "1-0-0"
     }
 
+Once the data is in Kafka, we can build a graph of the `network_userid`'s and `page_url`'s
 
+    http PUT cp01.woolford.io:8083/connectors/snowplow-neo4j/config <<< '
+    {
+        "connector.class": "streams.kafka.connect.sink.Neo4jSinkConnector",
+        "name": "snowplow-neo4j",
+        "neo4j.authentication.basic.password": "V1ctoria",
+        "neo4j.authentication.basic.username": "neo4j",
+        "neo4j.server.uri": "bolt://neo4j-snowplow.woolford.io:7687",
+        "neo4j.topic.cypher.snowplow-enriched-json-good": "MERGE (network_userid:network_userid {id: event.network_userid}) MERGE (page_url:page_url {id: event.page_url}) MERGE (network_userid)-[:VIEWED]->(page_url)",
+        "topics": "snowplow-enriched-json-good",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+    }'
 
+This graph can be queried to create personalized recommendations. This query, for example, returns page recommendations for a particular user.
+
+    MATCH (user:network_userid {id: 'b6a62da9-49d9-490f-a7ee-a6ccb95515c5'})-[:VIEWED]->(page:page_url)<-[:VIEWED]-(other_user:network_userid)-[:VIEWED]->(other_page:page_url)
+    WHERE user <> other_user
+    AND other_page.id <> "https://woolford.io/"
+    RETURN other_page, count(other_user) AS frequency
+
+[//]: # (TODO: )
