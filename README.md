@@ -153,9 +153,11 @@ Once the data is in Kafka, we can build a graph of the `network_userid`'s and `p
 
 This graph can be queried to create personalized recommendations. This query, for example, returns page recommendations for a particular user.
 
-    MATCH (user:network_userid {id: 'b6a62da9-49d9-490f-a7ee-a6ccb95515c5'})-[:VIEWED]->(page:page_url)<-[:VIEWED]-(other_user:network_userid)-[:VIEWED]->(other_page:page_url)
+    MATCH (user:network_userid {id: '25e545d7-8e9a-4acf-b52a-be3de77a4d8b'})-[:VIEWED]->(page:page_url)<-[:VIEWED]-(other_user:network_userid)-[:VIEWED]->(other_page:page_url)
     WHERE user <> other_user
+    AND NOT EXISTS ( ( {id: '25e545d7-8e9a-4acf-b52a-be3de77a4d8b'}) -[:VIEWED]->(other_page:page_url) )
     AND other_page.id <> "https://woolford.io/"
-    RETURN other_page, count(other_user) AS frequency
+    RETURN other_page, COUNT(other_user) AS frequency
+    ORDER BY frequency DESC
 
-[//]: # (TODO: )
+[//]: # (TODO: mention the cold-start issue, i.e. the "green Volvo" problem)
