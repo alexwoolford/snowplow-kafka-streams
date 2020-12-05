@@ -151,13 +151,65 @@ Once the data is in Kafka, we can build a graph of the `network_userid`'s and `p
         "value.converter.schemas.enable": "false"
     }'
 
-This graph can be queried to create personalized recommendations. This query, for example, returns page recommendations for a particular user.
+This graph can be queried, using the Cypher query language, to create personalized recommendations. The query can easily be exposed as a REST service, e.g.:
 
-    MATCH (user:network_userid {id: '25e545d7-8e9a-4acf-b52a-be3de77a4d8b'})-[:VIEWED]->(page:page_url)<-[:VIEWED]-(other_user:network_userid)-[:VIEWED]->(other_page:page_url)
-    WHERE user <> other_user
-    AND NOT EXISTS ( ( {id: '25e545d7-8e9a-4acf-b52a-be3de77a4d8b'}) -[:VIEWED]->(other_page:page_url) )
-    AND other_page.id <> "https://woolford.io/"
-    RETURN other_page, COUNT(other_user) AS frequency
-    ORDER BY frequency DESC
+    #!/usr/bin/env python
+    from neo4j import GraphDatabase
+    from flask import Flask, jsonify
+    
+    app = Flask(__name__)
+    
+    
+    @app.route('/recommendations/<network_userid>', methods=['GET'])
+    def index(network_userid):
+        recommendations = recommender.recommend(network_userid)
+        return jsonify(recommendations)
+    
+    
+    class Recommender:
+    
+        def __init__(self, uri, user, password):
+            self.driver = GraphDatabase.driver(uri, auth=(user, password))
+    
+        def close(self):
+            self.driver.close()
+    
+        def recommend(self, network_userid):
+            with self.driver.session() as session:
+                recommendations = session.read_transaction(self._get_recommendations, network_userid)
+                return recommendations
+    
+        @staticmethod
+        def _get_recommendations(tx, network_userid):
+    
+            query = """MATCH (user:network_userid {id: $network_userid})-[:VIEWED]->(page:page_url)<-[:VIEWED]-(other_user:network_userid)-[:VIEWED]->(other_page:page_url)
+                       WHERE user <> other_user
+                       AND NOT EXISTS ( ( {id: $network_userid}) -[:VIEWED]->(other_page:page_url) )
+                       AND other_page.id <> "https://woolford.io/"
+                       AND NOT other_page.id STARTS WITH "https://woolford.io/tags/"
+                       WITH other_page.id AS page_url, COUNT(other_user) AS frequency
+                       ORDER BY frequency DESC
+                       RETURN page_url"""
+    
+            query_result = tx.run(query, network_userid=network_userid)
+    
+            recommendations = []
+            for record in query_result:
+                recommendations.append(record.get("page_url"))
+            return recommendations
+    
+    
+    if __name__ == "__main__":
+        recommender = Recommender("bolt://neo4j-snowplow.woolford.io:7687", "neo4j", "V1ctoria")
+        app.run()
+
+Here's an example call to the recommender REST service:
+
+    http localhost:5000/recommendations/8a5107ba-bffa-47de-ba9a-6fc74f08ac62
+    [
+        "https://woolford.io/2018-02-11-cowrie/",
+        "https://woolford.io/2020-07-11-streaming-joins/"
+    ]
+
 
 [//]: # (TODO: mention the cold-start issue, i.e. the "green Volvo" problem)
