@@ -135,6 +135,24 @@ Here's an example record from a page request:
       "event_version": "1-0-0"
     }
 
+The Kafka Streams job was packaged in a Docker container. To run, pass in the following properties as environment variables:
+
+- SNOWPLOW_KAFKA_BOOTSTRAP_SERVERS
+- SNOWPLOW_KAFKA_SECURITY_PROTOCOL
+- SNOWPLOW_KAFKA_SASL_JAAS_CONFIG
+- SNOWPLOW_KAFKA_SASL_MECHANISM
+
+This could be done by creating a `.env` file, e.g. `snowplow-ccloud.env` that contains the connection properties:
+
+    SNOWPLOW_KAFKA_BOOTSTRAP_SERVERS=pkc-lzvrd.us-west4.gcp.confluent.cloud:9092
+    SNOWPLOW_KAFKA_SECURITY_PROTOCOL=SASL_SSL
+    SNOWPLOW_KAFKA_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username='********' password='********';
+    SNOWPLOW_KAFKA_SASL_MECHANISM=PLAIN
+
+... and then launch the container:
+
+    docker run -d --env-file snowplow-ccloud.env alexwoolford/snowplow-kafka-streams:latest
+
 Once the data is in Kafka, we can build a graph of the `network_userid`'s and `page_url`'s
 
     http PUT cp01.woolford.io:8083/connectors/snowplow-neo4j/config <<< '
@@ -213,3 +231,4 @@ Here's an example call to the recommender REST service:
 
 
 [//]: # (TODO: mention the cold-start issue, i.e. the "green Volvo" problem)
+

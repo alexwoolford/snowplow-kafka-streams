@@ -28,14 +28,14 @@ public class SnowplowStreams {
 
         // set props for Kafka Steams app (see KafkaConstants)
         Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, KafkaConstants.APPLICATION_ID);
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, KafkaConstants.KAFKA_BROKERS);
-        props.put(StreamsConfig.SECURITY_PROTOCOL_CONFIG, KafkaConstants.SECURITY_PROTOCOL);
-        props.put(SaslConfigs.SASL_JAAS_CONFIG, KafkaConstants.SASL_JAAS_CONFIG);
+        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "snowplow-kafka-streams");
+        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("SNOWPLOW_KAFKA_BOOTSTRAP_SERVERS"));
+        props.put(StreamsConfig.SECURITY_PROTOCOL_CONFIG, System.getenv("SNOWPLOW_KAFKA_SECURITY_PROTOCOL"));
+        props.put(SaslConfigs.SASL_JAAS_CONFIG, System.getenv("SNOWPLOW_KAFKA_SASL_JAAS_CONFIG"));
+        props.put(SaslConfigs.SASL_MECHANISM, System.getenv("SNOWPLOW_KAFKA_SASL_MECHANISM"));
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(SaslConfigs.SASL_MECHANISM, KafkaConstants.SASL_MECHANISM);
 
         final StreamsBuilder builder = new StreamsBuilder();
 
