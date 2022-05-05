@@ -1,7 +1,6 @@
 package io.woolford;
 
 import cats.data.Validated;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.snowplowanalytics.snowplow.analytics.scalasdk.Event;
 import com.snowplowanalytics.snowplow.analytics.scalasdk.ParsingError;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -30,9 +29,19 @@ public class SnowplowStreams {
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, "snowplow-kafka-streams");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("SNOWPLOW_KAFKA_BOOTSTRAP_SERVERS"));
-        props.put(StreamsConfig.SECURITY_PROTOCOL_CONFIG, System.getenv("SNOWPLOW_KAFKA_SECURITY_PROTOCOL"));
-        props.put(SaslConfigs.SASL_JAAS_CONFIG, System.getenv("SNOWPLOW_KAFKA_SASL_JAAS_CONFIG"));
-        props.put(SaslConfigs.SASL_MECHANISM, System.getenv("SNOWPLOW_KAFKA_SASL_MECHANISM"));
+
+        if (System.getenv("SNOWPLOW_KAFKA_SECURITY_PROTOCOL") != null){
+            props.put(StreamsConfig.SECURITY_PROTOCOL_CONFIG, System.getenv("SNOWPLOW_KAFKA_SECURITY_PROTOCOL"));
+        }
+
+        if (System.getenv("SNOWPLOW_KAFKA_SASL_JAAS_CONFIG") != null){
+            props.put(SaslConfigs.SASL_JAAS_CONFIG, System.getenv("SNOWPLOW_KAFKA_SASL_JAAS_CONFIG"));
+        }
+
+        if (System.getenv("SNOWPLOW_KAFKA_SASL_MECHANISM") != null){
+            props.put(SaslConfigs.SASL_MECHANISM, System.getenv("SNOWPLOW_KAFKA_SASL_MECHANISM"));
+        }
+
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
@@ -41,7 +50,9 @@ public class SnowplowStreams {
 
         KStream<String, String> snowplowEnrichedGood = builder.stream("snowplow-enriched-good");
 
-        snowplowEnrichedGood.mapValues(value -> {
+        snowplowEnrichedGood
+                .filter((k, v) -> v != null)
+                .mapValues(value -> {
             Validated<ParsingError, Event> event  = Event.parse(value);
             Either<ParsingError, Event> condition = event.toEither();
             if (condition.isLeft()){
@@ -50,20 +61,7 @@ public class SnowplowStreams {
                 return null;
             } else {
                 Event e = condition.right().get();
-
-                ObjectMapper mapper = new ObjectMapper();
-                String json = null;
-
-                Object object = null;
-                try {
-                    object = mapper.readValue(e.toJson(false).deepDropNullValues().toString(), Object.class);
-                    json = mapper.writeValueAsString(object);
-                } catch (Exception exception) {
-                    logger.error("Unable to parse JSON. " + exception.getMessage());
-                }
-                
-                logger.info(json);
-                return json;
+                return e.toJson(false).toString();
             }
         }).to("snowplow-enriched-good-json");
 
