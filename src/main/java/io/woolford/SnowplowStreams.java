@@ -27,7 +27,7 @@ public class SnowplowStreams {
 
         // set props for Kafka Steams app (see KafkaConstants)
         Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "snowplow-kafka-streams");
+        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "snowplow-kafka-streams-1");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("SNOWPLOW_KAFKA_BOOTSTRAP_SERVERS"));
 
         if (System.getenv("SNOWPLOW_KAFKA_SECURITY_PROTOCOL") != null){
@@ -64,6 +64,10 @@ public class SnowplowStreams {
                 return e.toJson(false).toString();
             }
         }).to("snowplow-enriched-good-json");
+
+        KStream<String, String> snowplowEnrichedJsonGood = builder.stream("snowplow-enriched-good");
+
+
 
         // run it
         final Topology topology = builder.build();
